@@ -62,11 +62,12 @@ python app.py
 ```
 
 Starts a FastAPI server on `http://localhost:8000`. The mic-listening pipeline runs in a
-background thread; open the page in a browser to see live text + sentiment update
-automatically, or hit `GET /latest` directly for the raw JSON:
+background thread; open the page in a browser to see a live-updating feed of everything said,
+each entry with a colored sentiment badge (green/red/gray) and confidence %, newest first. Hit
+`GET /history` directly for the raw JSON list:
 
 ```json
-{"text": "This is great news!", "sentiment": "positive", "score": 0.95}
+[{"text": "This is great news!", "sentiment": "positive", "score": 0.95, "time": "14:02:10"}]
 ```
 
 Press `Ctrl+C` to stop.

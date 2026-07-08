@@ -55,6 +55,22 @@ its sentiment:
 
 Press `Ctrl+C` to stop.
 
+### Web server
+
+```bash
+python app.py
+```
+
+Starts a FastAPI server on `http://localhost:8000`. The mic-listening pipeline runs in a
+background thread; open the page in a browser to see live text + sentiment update
+automatically, or hit `GET /latest` directly for the raw JSON:
+
+```json
+{"text": "This is great news!", "sentiment": "positive", "score": 0.95}
+```
+
+Press `Ctrl+C` to stop.
+
 ### Standalone test scripts
 
 These isolate each half of the pipeline for debugging:
@@ -77,6 +93,6 @@ These isolate each half of the pipeline for debugging:
 - [x] Live mic transcription (Whisper via RealtimeSTT)
 - [x] RoBERTa sentiment scoring
 - [x] Connected pipeline (mic -> text -> sentiment, live)
-- [ ] Wrap pipeline in a FastAPI server
+- [x] Wrap pipeline in a FastAPI server
 - [ ] Expose locally via ngrok
 - [ ] Deploy via Cloudflare Worker

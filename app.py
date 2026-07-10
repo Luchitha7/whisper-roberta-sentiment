@@ -11,7 +11,10 @@ from transformers import pipeline
 app = FastAPI()
 
 # Placeholder list — replace with the real words from the data analyst.
-KEYWORDS = ["refund", "cancel", "manager", "complaint", "urgent"]
+KEYWORDS = [
+    "refund", "cancel", "manager", "complaint", "urgent",
+    "happy", "sad", "angry", "frustrated", "upset",
+]
 KEYWORD_PATTERN = re.compile(
     r"\b(" + "|".join(re.escape(word) for word in KEYWORDS) + r")\b",
     re.IGNORECASE,

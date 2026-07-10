@@ -82,115 +82,125 @@ def index():
     <html>
     <head>
       <title>Live Call Sentiment</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
       <style>
-        :root {
-          --positive: #2e7d32;
-          --negative: #c62828;
-          --neutral: #616161;
-          --bg: #f4f5f7;
-          --card-bg: #ffffff;
-        }
         * { box-sizing: border-box; }
         body {
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-          background: var(--bg);
           margin: 0;
-          padding: 24px;
-          color: #1c1c1e;
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+          background-color: #f3f2ef;
+          background-image: radial-gradient(circle at 12% 8%, #ffffff 0%, rgba(255,255,255,0) 45%),
+                             radial-gradient(circle at 92% 90%, #eae7e0 0%, rgba(234,231,224,0) 50%);
+          min-height: 100vh;
+          color: #23252b;
         }
-        .container { max-width: 640px; margin: 0 auto; }
+        .page {
+          min-height: 100vh;
+          padding: 56px 24px;
+          box-sizing: border-box;
+          display: flex;
+          justify-content: center;
+        }
+        .container { width: 100%; max-width: 760px; }
+        .title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+        .live-dot {
+          width: 10px; height: 10px; border-radius: 50%;
+          background: #ef4444; display: inline-block;
+          animation: pulse 1.6s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
         h1 {
-          font-size: 20px;
-          font-weight: 600;
-          margin: 0 0 4px;
+          font-size: 28px;
+          font-weight: 800;
+          color: #14151a;
+          margin: 0;
+          letter-spacing: -0.02em;
         }
         .subtitle {
-          color: #6e6e73;
-          font-size: 13px;
-          margin: 0 0 20px;
+          color: #70747e;
+          font-size: 15px;
+          margin: 0 0 28px;
         }
         .keyword-panel {
-          background: var(--card-bg);
-          border-radius: 8px;
-          padding: 12px 16px;
+          background: #ffffff;
+          border: 1px solid #e6e7eb;
+          border-radius: 16px;
+          padding: 24px 28px;
           margin-bottom: 20px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+          box-shadow: 0 1px 2px rgba(20,21,26,0.04);
         }
         .keyword-panel h2 {
           font-size: 12px;
+          font-weight: 700;
           text-transform: uppercase;
-          letter-spacing: 0.04em;
-          color: #6e6e73;
-          margin: 0 0 8px;
+          letter-spacing: 0.08em;
+          color: #9a9ea8;
+          margin: 0 0 14px;
         }
-        .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 10px; }
         .chip {
-          font-size: 13px;
-          padding: 4px 10px;
-          border-radius: 12px;
-          background: #f4f5f7;
-          color: #1c1c1e;
+          font-size: 14px;
+          font-weight: 600;
+          padding: 7px 14px;
+          border-radius: 999px;
+          background: #f0f1f4;
+          color: #5c606a;
         }
         .chip.hit {
-          background: #ffebee;
-          color: var(--negative);
-          font-weight: 600;
+          background: #fdeaea;
+          color: #c62828;
         }
         .empty {
-          color: #8e8e93;
+          color: #9a9ea8;
           text-align: center;
           padding: 40px 0;
           font-size: 14px;
         }
+        #feed { display: flex; flex-direction: column; gap: 14px; }
         .card {
-          background: var(--card-bg);
-          border-left: 4px solid var(--neutral);
-          border-radius: 8px;
-          padding: 12px 16px;
-          margin-bottom: 10px;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+          background: #ffffff;
+          border: 1px solid #ececec;
+          border-radius: 12px;
+          padding: 18px 22px;
+          box-shadow: 0 1px 2px rgba(20,21,26,0.04);
         }
-        .card.positive { border-left-color: var(--positive); }
-        .card.negative { border-left-color: var(--negative); }
-        .card.neutral { border-left-color: var(--neutral); }
         .card-top {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 6px;
+          margin-bottom: 12px;
         }
         .badge {
-          font-size: 11px;
-          font-weight: 600;
+          font-size: 12px;
+          font-weight: 700;
           text-transform: uppercase;
-          letter-spacing: 0.03em;
-          padding: 2px 8px;
-          border-radius: 10px;
-          color: white;
+          letter-spacing: 0.04em;
+          padding: 4px 10px;
+          border-radius: 6px;
         }
-        .badge.positive { background: var(--positive); }
-        .badge.negative { background: var(--negative); }
-        .badge.neutral { background: var(--neutral); }
-        .time { font-size: 12px; color: #8e8e93; }
-        .text { font-size: 15px; line-height: 1.4; }
-        .text .keyword {
-          background: #ffebee;
-          color: var(--negative);
-          font-weight: 600;
-          padding: 0 3px;
-          border-radius: 3px;
-        }
+        .badge.positive { background: #22a06b; color: #ffffff; }
+        .badge.negative { background: #dc4444; color: #ffffff; }
+        .badge.neutral { background: #eceef1; color: #5c606a; }
+        .time { font-size: 13px; color: #a2a6ae; font-variant-numeric: tabular-nums; }
+        .text { font-size: 16px; line-height: 1.5; color: #23252b; }
+        .text .keyword { color: #c62828; font-weight: 700; }
       </style>
     </head>
     <body>
+      <div class="page">
       <div class="container">
-        <h1>Live Call Sentiment</h1>
+        <div class="title-row">
+          <span class="live-dot"></span>
+          <h1>Live Call Sentiment</h1>
+        </div>
         <p class="subtitle">Speak into your microphone — updates automatically</p>
         <div class="keyword-panel">
           <h2>Keyword count</h2>
           <div class="chips" id="chips"></div>
         </div>
         <div id="feed"><div class="empty">Waiting for speech...</div></div>
+      </div>
       </div>
       <script>
         async function pollHistory() {
@@ -205,7 +215,7 @@ def index():
             const sentiment = (entry.sentiment || 'neutral').toLowerCase();
             const pct = Math.round(entry.score * 100);
             return `
-              <div class="card ${sentiment}">
+              <div class="card">
                 <div class="card-top">
                   <span class="badge ${sentiment}">${sentiment} · ${pct}%</span>
                   <span class="time">${entry.time}</span>

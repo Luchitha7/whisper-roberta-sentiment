@@ -1,3 +1,5 @@
+import html
+import re
 import threading
 from datetime import datetime
 
@@ -8,9 +10,22 @@ from transformers import pipeline
 
 app = FastAPI()
 
+# Placeholder list — replace with the real words from the data analyst.
+KEYWORDS = ["refund", "cancel", "manager", "complaint", "urgent"]
+KEYWORD_PATTERN = re.compile(
+    r"\b(" + "|".join(re.escape(word) for word in KEYWORDS) + r")\b",
+    re.IGNORECASE,
+)
+
 MAX_HISTORY = 50
 history = []
-history_lock = threading.Lock()
+keyword_counts = {word: 0 for word in KEYWORDS}
+state_lock = threading.Lock()
+
+
+def highlight_keywords(text):
+    escaped = html.escape(text)
+    return KEYWORD_PATTERN.sub(r'<span class="keyword">\1</span>', escaped)
 
 
 def recorder_loop():
@@ -22,16 +37,25 @@ def recorder_loop():
 
     def process_text(text):
         result = classifier(text)[0]
+        matches = KEYWORD_PATTERN.findall(text)
+
         entry = {
             "text": text,
+            "highlighted": highlight_keywords(text),
             "sentiment": result["label"],
             "score": round(result["score"], 2),
             "time": datetime.now().strftime("%H:%M:%S"),
         }
-        with history_lock:
+
+        with state_lock:
             history.insert(0, entry)
             del history[MAX_HISTORY:]
+            for match in matches:
+                keyword_counts[match.lower()] += 1
+
         print(f'[LIVE TEXT]: "{text}" -> [SENTIMENT]: {result["label"].upper()} ({result["score"]:.2f})')
+        if matches:
+            print(f'[KEYWORDS]: {", ".join(matches)}')
 
     while True:
         recorder.text(process_text)
@@ -39,8 +63,14 @@ def recorder_loop():
 
 @app.get("/history")
 def get_history():
-    with history_lock:
+    with state_lock:
         return list(history)
+
+
+@app.get("/keywords")
+def get_keywords():
+    with state_lock:
+        return dict(keyword_counts)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -75,6 +105,33 @@ def index():
           color: #6e6e73;
           font-size: 13px;
           margin: 0 0 20px;
+        }
+        .keyword-panel {
+          background: var(--card-bg);
+          border-radius: 8px;
+          padding: 12px 16px;
+          margin-bottom: 20px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+        }
+        .keyword-panel h2 {
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: #6e6e73;
+          margin: 0 0 8px;
+        }
+        .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .chip {
+          font-size: 13px;
+          padding: 4px 10px;
+          border-radius: 12px;
+          background: #f4f5f7;
+          color: #1c1c1e;
+        }
+        .chip.hit {
+          background: #ffebee;
+          color: var(--negative);
+          font-weight: 600;
         }
         .empty {
           color: #8e8e93;
@@ -113,16 +170,27 @@ def index():
         .badge.neutral { background: var(--neutral); }
         .time { font-size: 12px; color: #8e8e93; }
         .text { font-size: 15px; line-height: 1.4; }
+        .text .keyword {
+          background: #ffebee;
+          color: var(--negative);
+          font-weight: 600;
+          padding: 0 3px;
+          border-radius: 3px;
+        }
       </style>
     </head>
     <body>
       <div class="container">
         <h1>Live Call Sentiment</h1>
         <p class="subtitle">Speak into your microphone — updates automatically</p>
+        <div class="keyword-panel">
+          <h2>Keyword count</h2>
+          <div class="chips" id="chips"></div>
+        </div>
         <div id="feed"><div class="empty">Waiting for speech...</div></div>
       </div>
       <script>
-        async function poll() {
+        async function pollHistory() {
           const res = await fetch('/history');
           const data = await res.json();
           const feed = document.getElementById('feed');
@@ -139,11 +207,27 @@ def index():
                   <span class="badge ${sentiment}">${sentiment} · ${pct}%</span>
                   <span class="time">${entry.time}</span>
                 </div>
-                <div class="text">${entry.text}</div>
+                <div class="text">${entry.highlighted}</div>
               </div>
             `;
           }).join('');
         }
+
+        async function pollKeywords() {
+          const res = await fetch('/keywords');
+          const data = await res.json();
+          const chips = document.getElementById('chips');
+          chips.innerHTML = Object.entries(data).map(([word, count]) => {
+            const hit = count > 0 ? 'hit' : '';
+            return `<span class="chip ${hit}">${word}: ${count}</span>`;
+          }).join('');
+        }
+
+        function poll() {
+          pollHistory();
+          pollKeywords();
+        }
+
         setInterval(poll, 1000);
         poll();
       </script>

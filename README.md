@@ -70,6 +70,15 @@ each entry with a colored sentiment badge (green/red/gray) and confidence %, new
 [{"text": "This is great news!", "sentiment": "positive", "score": 0.95, "time": "14:02:10"}]
 ```
 
+Every phrase is also checked against a predefined keyword list (`KEYWORDS` in `app.py`,
+currently a placeholder — swap in the real list as needed). Matched keywords are highlighted
+in the live feed and tallied in a running count panel on the page. Hit `GET /keywords` for the
+raw counts:
+
+```json
+{"refund": 1, "cancel": 0, "manager": 1, "complaint": 0, "urgent": 0, "happy": 2, "sad": 1, "angry": 0, "frustrated": 1, "upset": 0}
+```
+
 Press `Ctrl+C` to stop.
 
 ### Standalone test scripts

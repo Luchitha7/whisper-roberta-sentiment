@@ -13,6 +13,8 @@ mic audio -> RealtimeSTT (faster-whisper) -> text -> RoBERTa sentiment classifie
 Everything runs locally and offline (after the first run downloads model weights) — no audio
 or text leaves your machine.
 
+![Live Call Sentiment UI showing a keyword count panel and a live feed of transcribed phrases with color-coded sentiment badges](screenshot.png)
+
 ## Requirements
 
 - macOS (developed and tested on Apple Silicon, CPU-only — no GPU needed)

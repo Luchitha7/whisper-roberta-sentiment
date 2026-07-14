@@ -164,6 +164,36 @@ def index():
           font-size: 15px;
           margin: 0 0 28px;
         }
+        .score-panel {
+          background: #ffffff;
+          border: 1px solid #e6e7eb;
+          border-radius: 16px;
+          padding: 24px 28px;
+          margin-bottom: 20px;
+          box-shadow: 0 1px 2px rgba(20,21,26,0.04);
+          text-align: center;
+        }
+        .score-panel h2 {
+          font-size: 12px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: #9a9ea8;
+          margin: 0 0 10px;
+        }
+        .score-value {
+          font-size: 48px;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+        }
+        .score-value.positive { color: #22a06b; }
+        .score-value.negative { color: #dc4444; }
+        .score-value.neutral { color: #5c606a; }
+        .score-sub {
+          font-size: 13px;
+          color: #9a9ea8;
+          margin-top: 6px;
+        }
         .keyword-panel {
           background: #ffffff;
           border: 1px solid #e6e7eb;
@@ -237,6 +267,11 @@ def index():
           <h1>Live Call Sentiment</h1>
         </div>
         <p class="subtitle">Speak into your microphone — updates automatically</p>
+        <div class="score-panel">
+          <h2>Call score (last 20 lines)</h2>
+          <div class="score-value neutral" id="scoreValue">0%</div>
+          <div class="score-sub" id="scoreSub"></div>
+        </div>
         <div class="keyword-panel">
           <h2>Keyword count</h2>
           <div class="chips" id="chips"></div>
@@ -278,9 +313,25 @@ def index():
           }).join('');
         }
 
+        async function pollCallScore() {
+          const res = await fetch('/call-score');
+          const data = await res.json();
+          let mood = 'neutral';
+          if (data.score > 10) mood = 'positive';
+          else if (data.score < -10) mood = 'negative';
+
+          const value = document.getElementById('scoreValue');
+          value.className = 'score-value ' + mood;
+          value.textContent = (data.score > 0 ? '+' : '') + data.score + '%';
+
+          document.getElementById('scoreSub').textContent =
+            `sentiment: ${data.avg_sentiment} · keywords: ${data.keyword_impact}`;
+        }
+
         function poll() {
           pollHistory();
           pollKeywords();
+          pollCallScore();
         }
 
         setInterval(poll, 1000);

@@ -10,19 +10,30 @@ from transformers import pipeline
 
 app = FastAPI()
 
-# Placeholder list — replace with the real words from the data analyst.
-KEYWORDS = [
-    "refund", "cancel", "manager", "complaint", "urgent",
-    "happy", "sad", "angry", "frustrated", "upset",
-]
+# Placeholder weights — replace with the real words/weights from the data analyst.
+KEYWORD_WEIGHTS = {
+    "cancel": -0.7,
+    "complaint": -0.6,
+    "refund": -0.5,
+    "angry": -0.5,
+    "frustrated": -0.4,
+    "upset": -0.4,
+    "manager": -0.3,
+    "urgent": -0.2,
+    "sad": -0.2,
+    "happy": 0.5,
+}
 KEYWORD_PATTERN = re.compile(
-    r"\b(" + "|".join(re.escape(word) for word in KEYWORDS) + r")\b",
+    r"\b(" + "|".join(re.escape(word) for word in KEYWORD_WEIGHTS) + r")\b",
     re.IGNORECASE,
 )
 
+CONFIDENCE_THRESHOLD = 0.6
+ROLLING_WINDOW = 20
+
 MAX_HISTORY = 50
 history = []
-keyword_counts = {word: 0 for word in KEYWORDS}
+keyword_counts = {word: 0 for word in KEYWORD_WEIGHTS}
 state_lock = threading.Lock()
 
 
@@ -35,18 +46,25 @@ def recorder_loop():
     classifier = pipeline(
         task="sentiment-analysis",
         model="cardiffnlp/twitter-roberta-base-sentiment-latest",
+        top_k=None,
     )
     recorder = AudioToTextRecorder(model="tiny", device="cpu", compute_type="int8")
 
     def process_text(text):
-        result = classifier(text)[0]
+        scores = {row["label"]: row["score"] for row in classifier(text)[0]}
+        top_label, top_score = max(scores.items(), key=lambda item: item[1])
+
+        highest = max(scores.values())
+        filtered_score = 0.0 if highest < CONFIDENCE_THRESHOLD else scores["positive"] - scores["negative"]
+
         matches = KEYWORD_PATTERN.findall(text)
 
         entry = {
             "text": text,
             "highlighted": highlight_keywords(text),
-            "sentiment": result["label"],
-            "score": round(result["score"], 2),
+            "sentiment": top_label,
+            "score": round(top_score, 2),
+            "filtered_score": filtered_score,
             "time": datetime.now().strftime("%H:%M:%S"),
         }
 
@@ -56,7 +74,7 @@ def recorder_loop():
             for match in matches:
                 keyword_counts[match.lower()] += 1
 
-        print(f'[LIVE TEXT]: "{text}" -> [SENTIMENT]: {result["label"].upper()} ({result["score"]:.2f})')
+        print(f'[LIVE TEXT]: "{text}" -> [SENTIMENT]: {top_label.upper()} ({top_score:.2f})')
         if matches:
             print(f'[KEYWORDS]: {", ".join(matches)}')
 
@@ -74,6 +92,30 @@ def get_history():
 def get_keywords():
     with state_lock:
         return dict(keyword_counts)
+
+
+@app.get("/call-score")
+def get_call_score():
+    with state_lock:
+        window = history[:ROLLING_WINDOW]
+
+    if not window:
+        return {"score": 0.0, "avg_sentiment": 0.0, "keyword_impact": 0.0}
+
+    avg_sentiment = sum(entry["filtered_score"] for entry in window) / len(window)
+
+    keyword_impact = 0.0
+    for entry in window:
+        for match in KEYWORD_PATTERN.findall(entry["text"]):
+            keyword_impact += KEYWORD_WEIGHTS[match.lower()]
+
+    combined = max(-1.0, min(1.0, avg_sentiment + keyword_impact))
+
+    return {
+        "score": round(combined * 100, 1),
+        "avg_sentiment": round(avg_sentiment, 2),
+        "keyword_impact": round(keyword_impact, 2),
+    }
 
 
 @app.get("/", response_class=HTMLResponse)

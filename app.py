@@ -29,11 +29,12 @@ KEYWORD_PATTERN = re.compile(
 )
 
 CONFIDENCE_THRESHOLD = 0.6
-ROLLING_WINDOW = 20
 
 MAX_HISTORY = 50
 history = []
 keyword_counts = {word: 0 for word in KEYWORD_WEIGHTS}
+call_active = False
+call_log = []
 state_lock = threading.Lock()
 
 
@@ -73,6 +74,8 @@ def recorder_loop():
             del history[MAX_HISTORY:]
             for match in matches:
                 keyword_counts[match.lower()] += 1
+            if call_active:
+                call_log.append(entry)
 
         print(f'[LIVE TEXT]: "{text}" -> [SENTIMENT]: {top_label.upper()} ({top_score:.2f})')
         if matches:
@@ -94,18 +97,36 @@ def get_keywords():
         return dict(keyword_counts)
 
 
+@app.post("/call/start")
+def start_call():
+    global call_active
+    with state_lock:
+        call_active = True
+        call_log.clear()
+    return {"active": True}
+
+
+@app.post("/call/end")
+def end_call():
+    global call_active
+    with state_lock:
+        call_active = False
+    return {"active": False}
+
+
 @app.get("/call-score")
 def get_call_score():
     with state_lock:
-        window = history[:ROLLING_WINDOW]
+        entries = list(call_log)
+        active = call_active
 
-    if not window:
-        return {"score": 0.0, "avg_sentiment": 0.0, "keyword_impact": 0.0}
+    if not entries:
+        return {"score": 0.0, "avg_sentiment": 0.0, "keyword_impact": 0.0, "active": active}
 
-    avg_sentiment = sum(entry["filtered_score"] for entry in window) / len(window)
+    avg_sentiment = sum(entry["filtered_score"] for entry in entries) / len(entries)
 
     keyword_impact = 0.0
-    for entry in window:
+    for entry in entries:
         for match in KEYWORD_PATTERN.findall(entry["text"]):
             keyword_impact += KEYWORD_WEIGHTS[match.lower()]
 
@@ -115,6 +136,7 @@ def get_call_score():
         "score": round(combined * 100, 1),
         "avg_sentiment": round(avg_sentiment, 2),
         "keyword_impact": round(keyword_impact, 2),
+        "active": active,
     }
 
 
@@ -194,6 +216,27 @@ def index():
           color: #9a9ea8;
           margin-top: 6px;
         }
+        .call-status {
+          font-size: 13px;
+          font-weight: 600;
+          color: #9a9ea8;
+          margin-top: 14px;
+        }
+        .call-btn {
+          margin-top: 10px;
+          font-family: inherit;
+          font-size: 14px;
+          font-weight: 700;
+          padding: 10px 24px;
+          border-radius: 999px;
+          border: none;
+          cursor: pointer;
+          background: #14151a;
+          color: #ffffff;
+        }
+        .call-btn.active {
+          background: #dc4444;
+        }
         .keyword-panel {
           background: #ffffff;
           border: 1px solid #e6e7eb;
@@ -268,9 +311,11 @@ def index():
         </div>
         <p class="subtitle">Speak into your microphone — updates automatically</p>
         <div class="score-panel">
-          <h2>Call score (last 20 lines)</h2>
+          <h2>Call score</h2>
           <div class="score-value neutral" id="scoreValue">0%</div>
-          <div class="score-sub" id="scoreSub"></div>
+          <div class="score-sub" id="scoreSub">sentiment: 0 · keywords: 0</div>
+          <div class="call-status" id="callStatus">No active call</div>
+          <button class="call-btn" id="callBtn" onclick="toggleCall()">Start Call</button>
         </div>
         <div class="keyword-panel">
           <h2>Keyword count</h2>
@@ -326,6 +371,25 @@ def index():
 
           document.getElementById('scoreSub').textContent =
             `sentiment: ${data.avg_sentiment} · keywords: ${data.keyword_impact}`;
+
+          setCallButton(data.active);
+        }
+
+        function setCallButton(active) {
+          const btn = document.getElementById('callBtn');
+          const status = document.getElementById('callStatus');
+          btn.textContent = active ? 'End Call' : 'Start Call';
+          btn.className = 'call-btn' + (active ? ' active' : '');
+          status.textContent = active ? 'Call in progress' : 'No active call';
+        }
+
+        async function toggleCall() {
+          const btn = document.getElementById('callBtn');
+          const starting = btn.textContent === 'Start Call';
+          const res = await fetch(starting ? '/call/start' : '/call/end', { method: 'POST' });
+          const data = await res.json();
+          setCallButton(data.active);
+          pollCallScore();
         }
 
         function poll() {

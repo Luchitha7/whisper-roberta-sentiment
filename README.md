@@ -72,13 +72,35 @@ each entry with a colored sentiment badge (green/red/gray) and confidence %, new
 [{"text": "This is great news!", "sentiment": "positive", "score": 0.95, "time": "14:02:10"}]
 ```
 
-Every phrase is also checked against a predefined keyword list (`KEYWORDS` in `app.py`,
-currently a placeholder — swap in the real list as needed). Matched keywords are highlighted
-in the live feed and tallied in a running count panel on the page. Hit `GET /keywords` for the
-raw counts:
+Every phrase is also checked against a predefined keyword list (`KEYWORD_WEIGHTS` in
+`app.py`, currently a placeholder — swap in the real list as needed). Matched keywords are
+highlighted in the live feed and tallied in a running count panel on the page. Hit
+`GET /keywords` for the raw counts:
 
 ```json
 {"refund": 1, "cancel": 0, "manager": 1, "complaint": 0, "urgent": 0, "happy": 2, "sad": 1, "angry": 0, "frustrated": 1, "upset": 0}
+```
+
+#### Weighted call score
+
+Each phrase is also scored -1 (very negative) to +1 (very positive), but only if the model is
+at least 60% confident — low-confidence guesses are treated as neutral instead of skewing
+results. Each keyword also has a weight from -1 to +1 (e.g. "cancel" is -0.7, "happy" is
++0.5), based on how serious it is rather than just how it sounds.
+
+Click **Start Call** on the page before speaking, and **End Call** when you're done — only
+what's said in between counts toward the score. The score panel combines the average
+confidence-filtered sentiment with the total keyword impact for that call, clipped to a
+-100% to +100% range. You can also drive this over the API:
+
+```bash
+curl -X POST http://localhost:8000/call/start
+curl -X POST http://localhost:8000/call/end
+curl http://localhost:8000/call-score
+```
+
+```json
+{"score": -90.0, "avg_sentiment": 0.0, "keyword_impact": -0.9, "active": false}
 ```
 
 Press `Ctrl+C` to stop.
@@ -90,6 +112,10 @@ These isolate each half of the pipeline for debugging:
 - `mic_test.py` — transcribes live mic audio only, no sentiment scoring.
 - `sentiment_test.py` — runs the RoBERTa classifier against a few hardcoded sample sentences,
   no microphone involved.
+- `weighted_score_test.py` — tests the confidence-filtered sentiment scoring on a few sample
+  sentences, no microphone involved.
+- `call_score_test.py` — tests the full call score (sentiment + keyword weights, clipped to
+  -100%/+100%) against a fake multi-line call transcript, no microphone involved.
 
 ## Notes
 
@@ -106,5 +132,8 @@ These isolate each half of the pipeline for debugging:
 - [x] RoBERTa sentiment scoring
 - [x] Connected pipeline (mic -> text -> sentiment, live)
 - [x] Wrap pipeline in a FastAPI server
+- [x] Add keyword detection, highlighting, and live count summary
+- [x] Combine confidence-filtered sentiment and keyword weights into one per-call score
 - [ ] Expose locally via ngrok
 - [ ] Deploy via Cloudflare Worker
+- [ ] Replace placeholder keyword list/weights with the real ones
